@@ -35,8 +35,9 @@ public class SocketUploadClient {
     public static void main(String args[]) throws Exception{
 
         SocketUploadClient client = new SocketUploadClient();
-        client.testSocket();
-        //client.execute();
+        //client.testSocketVaryFileContentLength();
+        //client.testSocketVaryFileNameLength();
+        client.execute();
     }
     
     public void execute() throws Exception {
@@ -187,6 +188,49 @@ public class SocketUploadClient {
         bos.close();
         os.close();
         System.out.println("Test complete");
+    }
+    
+    public void testSocketVaryFileNameLength() throws Exception {
+    	serverAddress = "localhost";
+    	serverPort = 81;
+    	int minfilelength = 1;
+    	int maxfilelength = 255;
+    	for(int i=minfilelength; i<= maxfilelength; i++) {
+	    	socket = connect(serverAddress, serverPort);
+	        OutputStream os = socket.getOutputStream();
+	        BufferedOutputStream bos = new BufferedOutputStream(os);
+	        bos.write(new String(generateString("a", i) + ";\r\n\r\n123456789012345678901234;\r\n\r\nContentContentContentContent123456789012345678901234").getBytes());
+	        bos.close();
+	        os.close();
+	        System.out.println("Test complete - " + i);
+    	}
+    }
+    
+    public void testSocketVaryFileContentLength() throws Exception {
+    	serverAddress = "localhost";
+    	serverPort = 81;
+    	int minfilelength = 1;
+    	int maxfilelength = 1024;
+    	for(int i=minfilelength; i<= maxfilelength; i++) {
+	    	socket = connect(serverAddress, serverPort);
+	        OutputStream os = socket.getOutputStream();
+	        BufferedOutputStream bos = new BufferedOutputStream(os);
+	        bos.write(new String(i 
+	        		+ ";\r\n\r\n111111111111111111111111;\r\n\r\n" + 
+	        		generateString("a", i)+ "111111111111111111111111").getBytes());
+	        bos.close();
+	        os.close();
+	        System.out.println("Test complete - " + i);
+    	}
+    }
+    
+    public String generateString(String v, int len) {
+    	StringBuilder sb = new StringBuilder();
+    	for(int i=0; i<len; i++) {
+    		sb.append(v);
+    	}
+    	
+    	return sb.toString();
     }
     
     public Socket connect(String server,int port) throws Exception {

@@ -34,7 +34,7 @@ public class SocketUploadServer {
 	
 	private byte[] buff = null;
 	
-	private static int BUFFER_SIZE = 1000;
+	private static int BUFFER_SIZE = 1024;
 	
 	public static void main(String[] args) {
 		SocketUploadServer server = new SocketUploadServer();
@@ -131,7 +131,7 @@ public class SocketUploadServer {
 			writer.printf(message);
 			input = readWhenAvailable(reader);
 		} catch (IOException e) {
-			e.printStackTrace();
+			e.printStackTrace(System.out);
 			throw new IllegalArgumentException(e);
 		}
 		
@@ -151,7 +151,7 @@ public class SocketUploadServer {
 	        }
 			
 		} catch (IOException e) {
-			e.printStackTrace();
+			e.printStackTrace(System.out);
 			throw new IllegalArgumentException(e);
 		}
 		
@@ -206,7 +206,7 @@ public class SocketUploadServer {
 					}
 					shutdownLatch.countDown();
 				} catch (Exception e) {
-					e.printStackTrace();
+					e.printStackTrace(System.out);
 					throw new IllegalStateException(e);
 				}
 			}
@@ -264,6 +264,7 @@ public class SocketUploadServer {
 	    
 	    byte[] body = null;
 	    while((body = readTillBoundary(bis, boundary)).length > 0) {
+	    	sop("Writing to file " + new String(body));
 	    	fos.write(body);
 	    	fos.flush();
 	    }
@@ -330,7 +331,8 @@ public class SocketUploadServer {
 			pos = find(buff, find[i], pos);
 			if(pos > -1) {
 				firstpos = firstpos == -1 ? pos : firstpos; 
-				pos = find(buff, find[i], pos);
+				//pos = find(buff, find[i], pos);
+				pos++;
 			} else {
 				pos = -1;
 				break;
@@ -352,7 +354,7 @@ public class SocketUploadServer {
 	public byte[] readTillBoundary(InputStream is, byte[] boundary) throws IOException {
 		sop("in read body. buff before reading from stream " + buff.length);
 		int pos = -1;
-		byte[] body = null;
+		byte[] body = new byte[0];
 		// read till buff size is boundary length + 1
 		int prevbuffsize = -1;
 		int minbufffillsize = BUFFER_SIZE > BOUNDARY_LENGTH * 2 + 1 ? BUFFER_SIZE : BOUNDARY_LENGTH * 2 + 1;
@@ -365,15 +367,22 @@ public class SocketUploadServer {
 		
 		sop("in read body buff size " + buff.length);
 		if((pos = findInArray(buff, boundary)) > -1) {
-			System.out.println("Found boundary at " + pos);
+			System.out.println("Found boundary at " + pos + " in " + new String(buff));
 			sop("copy size " + (buff.length - boundary.length));
 			body = new byte[pos];
 			System.arraycopy(buff, 0, body, 0, buff.length - boundary.length);
 			buff = new byte[0];
-		} else {
-			body = new byte[buff.length];
-			System.arraycopy(buff, 0, body, 0, buff.length);
-			buff = new byte[0];
+		} else if(buff.length > 0){
+			sop("Boundary not found in " + new String(buff));
+			// boundary segment can be there so copy BUFFER_SIZE bytes only 
+			body = new byte[buff.length - boundary.length];
+			System.arraycopy(buff, 0, body, 0, buff.length - boundary.length);
+			byte[] temp = new byte[buff.length - body.length];
+			System.arraycopy(buff, buff.length - boundary.length, temp, 0, boundary.length);
+			buff = new byte[boundary.length];
+			System.arraycopy(temp, 0, buff, 0, temp.length);
+			//buff = new byte[0];
+			
 		}
 		sop("body size " + body.length);
 		sop("body  " + new String(body));
