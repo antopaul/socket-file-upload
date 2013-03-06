@@ -5,6 +5,7 @@ import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -35,9 +36,10 @@ public class SocketUploadClient {
     public static void main(String args[]) throws Exception{
 
         SocketUploadClient client = new SocketUploadClient();
+        client.testSocketFilesFromFolder();
         //client.testSocketVaryFileContentLength();
         //client.testSocketVaryFileNameLength();
-        client.execute();
+        //client.execute();
     }
     
     public void execute() throws Exception {
@@ -152,11 +154,9 @@ public class SocketUploadClient {
             bos.write(buff,0,c);
         }
         // Write boundary to end sending file.
-        bos.write(bnd);
-        //bos.write(new String("123456789012345678901234").getBytes());
+        //bos.write(bnd);
+        bos.write(new String("123456789012345678901234").getBytes());
         bos.flush();
-        //bos.close();
-        //os.close();
         bis.close();
         System.out.println("Completed sending file " + f.getName());
     }
@@ -173,8 +173,8 @@ public class SocketUploadClient {
     public void sendBoundary(Socket skt, byte[] bnd) throws Exception {
     	OutputStream os = skt.getOutputStream();
         BufferedOutputStream bos = new BufferedOutputStream(os);
-        bos.write(bnd);
-        //bos.write(new String("123456789012345678901234").getBytes());
+        //bos.write(bnd);
+        bos.write(new String("123456789012345678901234").getBytes());
         bos.write(END_HEADER);
         bos.flush();
         System.out.println("Sent boundary.");
@@ -201,9 +201,10 @@ public class SocketUploadClient {
 	    	socket = connect(serverAddress, serverPort);
 	        OutputStream os = socket.getOutputStream();
 	        BufferedOutputStream bos = new BufferedOutputStream(os);
-	        bos.write(new String(generateString("a", i) + ";\r\n\r\n123456789012345678901234;\r\n\r\nContentContentContentContent123456789012345678901234").getBytes());
+	        bos.write(new String(testGenerateString("a", i) + ";\r\n\r\n123456789012345678901234;\r\n\r\nContentContentContentContent123456789012345678901234").getBytes());
 	        bos.close();
 	        os.close();
+	        socket.close();
 	        System.out.println("Test complete - " + i);
     	}
     }
@@ -214,25 +215,55 @@ public class SocketUploadClient {
     	int minfilelength = 1;
     	int maxfilelength = 1024;
     	for(int i=minfilelength; i<= maxfilelength; i++) {
+    		
 	    	socket = connect(serverAddress, serverPort);
 	        OutputStream os = socket.getOutputStream();
 	        BufferedOutputStream bos = new BufferedOutputStream(os);
 	        bos.write(new String(i 
 	        		+ ";\r\n\r\n111111111111111111111111;\r\n\r\n" + 
-	        		generateString("a", i)+ "111111111111111111111111").getBytes());
+	        		testGenerateString("a", i)+ "111111111111111111111111").getBytes());
 	        bos.close();
 	        os.close();
+	        socket.close();
+	        testSaveFile(i+"", "c:/sockettest", testGenerateString("a", i));
 	        System.out.println("Test complete - " + i);
     	}
     }
     
-    public String generateString(String v, int len) {
+    public void testSocketFilesFromFolder() throws Exception {
+    	serverAddress = "localhost";
+    	serverPort = 81;
+    	
+    	String path = "c:/sockettest";
+    	File file = new File(path);
+    	File[] files = file.listFiles();
+    	for(int i = 0; i<files.length; i++) {
+    		socket = connect(serverAddress, serverPort);
+            File f = files[i];
+            sendFilename(socket, f.getName());
+            boundary = generateBoundary();
+            sendBoundary(socket,boundary);
+            sendFile(socket, f, boundary);
+            processResponse(socket);
+            socket.close();
+    	}
+    	
+    }
+    
+    public String testGenerateString(String v, int len) {
     	StringBuilder sb = new StringBuilder();
     	for(int i=0; i<len; i++) {
     		sb.append(v);
     	}
     	
     	return sb.toString();
+    }
+    
+    public void testSaveFile(String fname, String path, String content) throws Exception {
+    	File f = new File(path + "/" + fname);
+    	FileWriter fw = new FileWriter(f);
+    	fw.write(content);
+    	fw.close();
     }
     
     public Socket connect(String server,int port) throws Exception {
