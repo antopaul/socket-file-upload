@@ -57,7 +57,7 @@ public class SocketUploadClient {
         sendFilename(socket, f.getName());
         boundary = generateBoundary();
         sendBoundary(socket,boundary);
-        sendFile(socket, f);
+        sendFile(socket, f, boundary);
         processResponse(socket);
         socket.close();
     }
@@ -130,7 +130,7 @@ public class SocketUploadClient {
     }
     
     public void processResponse(Socket skt) throws Exception{
-
+    	System.out.println("Waiting for response");
         BufferedReader breader = new BufferedReader(new InputStreamReader(skt.getInputStream()));
         String line = null;
 
@@ -141,7 +141,7 @@ public class SocketUploadClient {
         breader.close();
     }
     
-    public void sendFile(Socket skt, File f) throws Exception {
+    public void sendFile(Socket skt, File f, byte[] bnd) throws Exception {
         OutputStream os = skt.getOutputStream();
         BufferedOutputStream bos = new BufferedOutputStream(os);
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f));
@@ -151,8 +151,9 @@ public class SocketUploadClient {
         while((c = bis.read(buff)) != -1 ) {
             bos.write(buff,0,c);
         }
-        // Write eof so that do not wait.
-        bos.write(EOF);
+        // Write boundary to end sending file.
+        bos.write(bnd);
+        //bos.write(new String("123456789012345678901234").getBytes());
         bos.flush();
         //bos.close();
         //os.close();
@@ -173,6 +174,7 @@ public class SocketUploadClient {
     	OutputStream os = skt.getOutputStream();
         BufferedOutputStream bos = new BufferedOutputStream(os);
         bos.write(bnd);
+        //bos.write(new String("123456789012345678901234").getBytes());
         bos.write(END_HEADER);
         bos.flush();
         System.out.println("Sent boundary.");
@@ -247,7 +249,7 @@ public class SocketUploadClient {
 			int a = rnd.nextInt(9);
 			ia[i] = (byte)a;
 		}
-		
+		System.out.print("boundary - ");
 		for(int i=0; i<ia.length; i++) {
 			System.out.print(ia[i]);
 		}

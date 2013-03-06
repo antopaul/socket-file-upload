@@ -34,7 +34,7 @@ public class SocketUploadServer {
 	
 	private byte[] buff = null;
 	
-	private static int BUFFER_SIZE = 1024;
+	private static int BUFFER_SIZE = 4098;
 	
 	public static void main(String[] args) {
 		SocketUploadServer server = new SocketUploadServer();
@@ -245,6 +245,8 @@ public class SocketUploadServer {
 	    
 	    boundary = readHeader(bis);
 	    
+	    sop("Received boundary length " + boundary.length);
+	    
 	    System.out.println("Boundary..........." + new String(boundary));
 	    
 	    System.out.println("buff ... " + new String(buff));
@@ -268,24 +270,7 @@ public class SocketUploadServer {
 	    	fos.write(body);
 	    	fos.flush();
 	    }
-	    
-	    /*int c = 0;
-	    byte[] fbuff = new byte[BUFFER_SIZE];
-	    while((c = bis.read(fbuff)) != -1 ) {
-	        System.out.println("in 5 " + c);
-	        // get last 4 bytes and check if it is eof.
-	        byte c1 = fbuff[c - 4];
-	        byte c2 = fbuff[c - 3];
-	        byte c3 = fbuff[c - 2];
-	        byte c4 = fbuff[c - 1];
-	        String last = new String(new byte[]{c1,c2,c3,c4});
-	        if("\r\n\r\n".equals(last)) {
-	        	fos.write(fbuff,0,c - 4);
-	            break;
-	        }
-	        fos.write(fbuff,0,c);
-	    }*/
-	    
+ 
 	    fos.close();
 	    System.out.println("Saved file " + fname);
 	    sendResponse(skt, "File saved in server.");
@@ -303,8 +288,10 @@ public class SocketUploadServer {
 		System.out.println("Used buff size " + currentusedbuffsize);
 		System.arraycopy(buff, 0, oldbuff, 0, buff.length);
 	    byte[] temp = new byte[size];
-	    if((c = bis.read(temp)) != -1 ) {
+	    
+	    if(bis.available() > 0 && (c = bis.read(temp)) != -1 ) {
 	    	System.out.println("Read bytes count " + c);
+	    	System.out.println("Read bytes value " + new String(temp));
 	    	buff = new byte[currentusedbuffsize + c];
 	    	System.arraycopy(oldbuff, 0, buff, 0, currentusedbuffsize);
 	    	System.arraycopy(temp, 0, buff, destPos, c);
@@ -352,7 +339,7 @@ public class SocketUploadServer {
 	}
 	
 	public byte[] readTillBoundary(InputStream is, byte[] boundary) throws IOException {
-		sop("in read body. buff before reading from stream " + buff.length);
+		sop("in read body. buff before reading from stream " + new String(buff));
 		int pos = -1;
 		byte[] body = new byte[0];
 		// read till buff size is boundary length + 1
