@@ -17,7 +17,7 @@ import java.net.SocketException;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 
-public class SocketUploadServer {
+public class SocketUploadServer implements Runnable {
 
 	private ServerSocket serverSocket = null;
 	private String savePath = System.getProperty("user.home") + "\\dropbox";
@@ -43,6 +43,8 @@ public class SocketUploadServer {
 	private static FileWriter logger = null;
 	
 	private boolean endofstream = false;
+	
+	public static String OK = "ok";
 	
 	public static void main(String[] args) {
 		SocketUploadServer server = new SocketUploadServer();
@@ -192,39 +194,37 @@ public class SocketUploadServer {
 
 		// Use a thread to listen as ServerSocket.accept() blocks current
 		// thread.
-		Thread th = new Thread(new Runnable() {
-			Socket skt = null;
-			
-			public void run() {
-				ServerSocket myServer = serverSocket;
-				sop("Waiting for connection...................");
-				startLatch.countDown();
-				
-				try {
-					skt = serverSocket.accept();
-					InetSocketAddress remoteAddr = (InetSocketAddress) skt
-							.getRemoteSocketAddress();
-					sop("");
-					sop("Received connection from "
-							+ remoteAddr.getAddress().getHostAddress());
-					process(skt);
-					
-				} catch (SocketException se) {
-					if(myServer.isClosed()) {
-						sop("Server is shutdown........ by socket close");
-					} else {
-						sop("Server is shutdown.....");
-					}
-					shutdownLatch.countDown();
-				} catch (Exception e) {
-					e.printStackTrace(System.out);
-					throw new IllegalStateException(e);
-				}
-			}
-
-		});
+		Thread th = new Thread(this);
 		th.start();
 		return th;
+	}
+	
+	public void run() {
+		Socket skt = null;
+		ServerSocket myServer = serverSocket;
+		sop("Waiting for connection...................");
+		startLatch.countDown();
+		
+		try {
+			skt = serverSocket.accept();
+			InetSocketAddress remoteAddr = (InetSocketAddress) skt
+					.getRemoteSocketAddress();
+			sop("");
+			sop("Received connection from "
+					+ remoteAddr.getAddress().getHostAddress());
+			process(skt);
+			
+		} catch (SocketException se) {
+			if(myServer.isClosed()) {
+				sop("Server is shutdown........ by socket close");
+			} else {
+				sop("Server is shutdown.....");
+			}
+			shutdownLatch.countDown();
+		} catch (Exception e) {
+			e.printStackTrace(System.out);
+			throw new IllegalStateException(e);
+		}
 	}
 	
 	public void process(Socket skt) throws Exception {
@@ -255,7 +255,22 @@ public class SocketUploadServer {
 	    
 	    sop("File name ..........." + fname);
 	    System.out.println("File name ..........." + fname);
+
+	    File f = new File(savePath + "\\" + fname);
+
+	    if(f.exists()) {
+	        sendResponse(skt, "This file is not uploaded as file already " +
+	        		"exists with name " + fname + new String(END_HEADER));
+	        sop("This file is not uploaded as file already exists with name " + fname );
+	        skt.close();
+	        listen(serverSocket);
+	        return;
+	    } else {
+	    	sop("Sending ok response for file do not exists in server");
+	    	sendResponse(skt, OK + new String(END_HEADER));
+	    }
 	    
+	    // read boundary
 	    boundary = readHeader(bis);
 	    
 	    sop("Received boundary length " + boundary.length);
@@ -263,15 +278,6 @@ public class SocketUploadServer {
 	    sop("Boundary..........." + new String(boundary));
 	    
 	    //sop("buff ... " + new String(buff));
-	    
-	    File f = new File(savePath + "\\" + fname);
-
-	    if(f.exists()) {
-	        sendResponse(skt, "This file is not uploaded as file already exists with name " + fname);
-	        sop("This file is not uploaded as file already exists with name " + fname );
-	        listen(serverSocket);
-	        return;
-	    }
 	    
 	    // read content of file and write it to file.
 	    
@@ -286,7 +292,8 @@ public class SocketUploadServer {
  
 	    fos.close();
 	    System.out.println("Saved file " + fname);
-	    sendResponse(skt, "File saved in server.");
+	    sendResponse(skt, "File saved in server." + new String(END_HEADER));
+	    skt.close();
 	    listen(serverSocket);
 	}
 	
@@ -307,7 +314,7 @@ public class SocketUploadServer {
 	    }
 	    if(!endofstream && (c = bis.read(temp)) != -1 ) {
 	    	sop("Read bytes count " + c);
-	    	sop("Read bytes value " + new String(temp));
+	    	//sop("Read bytes value " + new String(temp));
 	    	buff = new byte[currentusedbuffsize + c];
 	    	System.arraycopy(oldbuff, 0, buff, 0, currentusedbuffsize);
 	    	System.arraycopy(temp, 0, buff, destPos, c);
@@ -419,13 +426,13 @@ public class SocketUploadServer {
 		}
 
 		sop("body size " + body.length);
-		sop("body  " + new String(body));
+		//sop("body  " + new String(body));
 		
 		return body;
 	}
 	
 	public byte[] readHeader(InputStream is) throws IOException {
-		sop("in read header. buff before reading from stream " + buff.length + " - " + new String(buff));
+		//sop("in read header. buff before reading from stream " + buff.length + " - " + new String(buff));
 		// it is assumed that header is at beginning of stream. ie starts at byte position 0.
 		int pos = -1;
 		byte[] header = null;
@@ -456,10 +463,10 @@ public class SocketUploadServer {
 
 				sop("header - " + new String(header));
 			} else {
-				sop("did not find header in buff " + new String(buff));
+				//sop("did not find header in buff " + new String(buff));
 				sop("reading form stream size " + (buff.length + BUFFER_SIZE));
 				readFromStream(buff.length + BUFFER_SIZE, is, buff.length);
-				sop("after reading from stream buff " + new String(buff));
+				//sop("after reading from stream buff " + new String(buff));
 			}
 		}
 		return header;
@@ -469,7 +476,7 @@ public class SocketUploadServer {
 	    PrintWriter writer = new PrintWriter(new OutputStreamWriter(skt.getOutputStream()));
 	    writer.print(msg);
 	    writer.flush();
-	    writer.close();
+	    //writer.close();
 	}
 	
 	public static void sop(String m) {
