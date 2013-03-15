@@ -22,27 +22,32 @@ public class SocketUploadClient {
 	private String filePath = null;
 	private Socket socket = null;
 	private byte[] boundary = null;
+	private String basePath = null;
 	
 	public static byte SEMI_COLON = 59;
 	public static byte CR = 13;
 	public static byte LF = 10;
+	public static byte COLON = 58;
 	
 	public static byte[] END_HEADER = new byte[]{SEMI_COLON, CR, LF, CR, LF};
 	public static byte[] EOF = new byte[]{CR, LF, CR, LF};
 	
 	public static String OK = "ok";
 	
+	public static String TYPE_FILE = "Type : File";
+	public static String TYPE_DIRECTORY = "Type : Directory";
+	
 	Random rnd = new Random();
 	
 	private static int BOUNDARY_LENGTH = 24;
 
     public static void main(String args[]) throws Exception{
-
         SocketUploadClient client = new SocketUploadClient();
+        client.testSocketFilesRecursively();
         //client.testSocketFilesFromFolder();
         //client.testSocketVaryFileContentLength();
         //client.testSocketVaryFileNameLength();
-        client.execute();
+        //client.execute();
     }
     
     public void execute() throws Exception {
@@ -55,23 +60,65 @@ public class SocketUploadClient {
     		serverPort = port;
     	}
     	filePath = readFilePath();
-    	sendSingle();
+    	sendFile();
     }
     
-    public void sendSingle() throws Exception {
-
+    public void recursiveSendFile() throws Exception {
     	File f = new File(filePath);
+    	
+    	if(basePath == null) {
+    		basePath = filePath;
+    		sop("basepath - " + basePath);
+    	}
     	
         if(!f.exists()) {
         	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
         	return;
         }
         
-        socket = connect(serverAddress, serverPort);
+        // If directory, send all files from that folder recursively.
+        if(f.isDirectory()) {
+	        File[] files = f.listFiles();
+	        if(files.length == 0) {
+	        	sop("The given directory don't have any files int it - " + f.getName());
+	        }
+	    	for(int i = 0; i<files.length; i++) {
+	    		filePath = files[i].getAbsolutePath();
+	    		sendFile();
+	    		if(files[i].isDirectory()) {
+	    			recursiveSendFile(); 
+	    		}
+	    	}
+        } else {
+        	sendFile();
+        }
         
-        sendFilename(socket, f.getName());
+    }
+    
+    public void sendFile() throws Exception {
+    	
+    	File f = new File(filePath);
+    	
+        if(!f.exists()) {
+        	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
+        	return;
+        }
+    	socket = connect(serverAddress, serverPort);
+    	sendSingle(f);
+    	socket.close();
+    }
+    
+    public void sendSingle(File f) throws Exception {
+
+        sendFilename(socket, f);
         // check response to see if file already exists.
         if(checkFileExistsInServer(socket, f)) {
+        	return;
+        }
+        if(f.isDirectory()) {
+        	String resp = processResponse(socket);
+        	sop(resp);
+        	socket.close();
         	return;
         }
         
@@ -80,7 +127,7 @@ public class SocketUploadClient {
         sendFile(socket, f, boundary);
         String resp = processResponse(socket);
         System.out.println(resp);
-        socket.close();
+       
     }
     
     public String readServerAddress() {
@@ -162,6 +209,7 @@ public class SocketUploadClient {
         // responses will be small so read that to memory.
         while((c = bis.read(buff)) != -1) {
         	sb.append(new String(Arrays.copyOf(buff, c)));
+        	//sop(sb.toString());
         	if(sb.toString().endsWith(new String(END_HEADER))) {
         		// Strip END_HEADER from response.
         		sb.replace(sb.length() -5, sb.length(), "");
@@ -201,9 +249,24 @@ public class SocketUploadClient {
         System.out.println("Completed sending file " + f.getName());
     }
     
-    public void sendFilename(Socket skt, String filename) throws Exception {
+    public void sendFilename(Socket skt, File file) throws Exception {
+    	String filename = file.getName();
         OutputStream os = skt.getOutputStream();
         BufferedOutputStream bos = new BufferedOutputStream(os);
+        if(file.isFile()) {
+        	bos.write(TYPE_FILE.getBytes());
+        } else {
+        	bos.write(TYPE_DIRECTORY.getBytes());
+        }
+        bos.write(END_HEADER);
+        if(basePath != null) {
+        	String apath = file.getAbsolutePath();
+        	String p = apath.substring(apath.indexOf(basePath) + basePath.length() + 1);
+        	if(!p.equals(filename)) {
+	        	sop("Sending base path " + p);
+	        	filename = p;
+        	}
+        }
         bos.write(filename.getBytes());
         bos.write(END_HEADER);
         bos.flush();
@@ -270,6 +333,16 @@ public class SocketUploadClient {
     	}
     }
     
+    public void testSocketFilesRecursively() throws Exception {
+    	serverAddress = "localhost";
+    	serverPort = 81;
+    	
+    	String path = "c:/sockettest/";
+    	File file = new File(path);
+    	filePath = file.getAbsolutePath();
+    	recursiveSendFile();
+    }
+    
     public void testSocketFilesFromFolder() throws Exception {
     	serverAddress = "localhost";
     	serverPort = 81;
@@ -278,23 +351,12 @@ public class SocketUploadClient {
     	File file = new File(path);
     	File[] files = file.listFiles();
     	for(int i = 0; i<files.length; i++) {
+    		if(files[i].isDirectory()) {
+    			continue;
+    		}
     		filePath = files[i].getAbsolutePath();
-    		sendSingle();
-    		/*socket = connect(serverAddress, serverPort);
-            File f = files[i];
-            sendFilename(socket, f.getName());
-            // check response to see if file already exists.
-            if(checkFileExistsInServer(socket, f)) {
-            	socket.close();
-            	continue;
-            }
-            boundary = generateBoundary();
-            sendBoundary(socket,boundary);
-            sendFile(socket, f, boundary);
-            System.out.println(processResponse(socket));
-            socket.close();*/
+    		sendFile();
     	}
-    	
     }
     
     public String testGenerateString(String v, int len) {
@@ -335,6 +397,10 @@ public class SocketUploadClient {
 		
 		return ia;
     }
+    
+    public static void sop(String m) {
+		System.out.println(m);
+	}
     
 /*
 jar cfe client.jar socket.SocketUploadClient socket/*.class

@@ -29,6 +29,9 @@ public class SocketUploadServer implements Runnable {
 	public static byte CR = 13;
 	public static byte LF = 10;
 	
+	public static String TYPE_FILE = "Type : File";
+	public static String TYPE_DIRECTORY = "Type : Directory";
+	
 	public static byte[] END_HEADER = new byte[]{SEMI_COLON, CR, LF, CR, LF};
 	public static byte[] EOF = new byte[]{CR, LF, CR, LF};
 	
@@ -231,10 +234,11 @@ public class SocketUploadServer implements Runnable {
 		
 		//sop("in...........");
 
-	    String fname = null;
+	    boolean isFile = true;
+		String fname = null;
 	    byte[] boundary = null;
 	    endofstream = false;
-	    
+	    	    
 	    InputStream is = skt.getInputStream();
 	    
 	    BufferedInputStream bis = new BufferedInputStream(is);
@@ -246,8 +250,23 @@ public class SocketUploadServer implements Runnable {
 	    }
 	    sop("buffer size " + buff.length);
 	    // first read till file name part is over. file name ends with \r\n
+	    byte[] filetype = readHeader(bis);
+	    if(filetype != null && filetype.length > 0) {
+	    	String fheader = new String(filetype);
+	    	if(TYPE_FILE.equals(fheader)) {
+	    		isFile = true;
+	    	} else if(TYPE_DIRECTORY.equals(fheader)) {
+	    		isFile = false;
+	    	} else {
+	    		throw new IllegalStateException("Invalid file type " + fheader);
+	    	}
+	    } else {
+	    	throw new IllegalStateException("File name not found....");
+	    }
+	    
 	    byte[] fnameBytes = readHeader(bis);
 	    if(fnameBytes != null && fnameBytes.length > 0) {
+	    	// if directory create it and listen for next file.
 	    	fname = new String(fnameBytes);
 	    } else {
 	    	throw new IllegalStateException("File name not found....");
@@ -268,6 +287,18 @@ public class SocketUploadServer implements Runnable {
 	    } else {
 	    	sop("Sending ok response for file do not exists in server");
 	    	sendResponse(skt, OK + new String(END_HEADER));
+	    }
+	    
+	    if(!isFile) {
+	    	// close socket and listen for next file.
+	    	boolean isCreated = f.mkdir();
+	    	if(isCreated) {
+	    		sop("Successfully created directory.");
+	    	}
+	    	sendResponse(skt, "Successfully created directory in server - " + fname + new String(END_HEADER));
+	    	skt.close();
+		    listen(serverSocket);
+		    return;
 	    }
 	    
 	    // read boundary
