@@ -43,11 +43,11 @@ public class SocketUploadClient {
 
     public static void main(String args[]) throws Exception{
         SocketUploadClient client = new SocketUploadClient();
-        client.testSocketFilesRecursively();
+        //client.testSocketFilesRecursively();
         //client.testSocketFilesFromFolder();
         //client.testSocketVaryFileContentLength();
         //client.testSocketVaryFileNameLength();
-        //client.execute();
+        client.execute();
     }
     
     public void execute() throws Exception {
@@ -60,7 +60,22 @@ public class SocketUploadClient {
     		serverPort = port;
     	}
     	filePath = readFilePath();
-    	sendFile();
+    	File f = new File(filePath);
+    	if(!f.exists()) {
+        	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
+        	return;
+        }
+    	if(f.isDirectory()) {
+    		String recursive = readString("You entered a directory path. " +
+        			"Do you want to upload all files recursively from that directory?(y/n) : ");
+        	if("y".equalsIgnoreCase(recursive)) {
+        			recursiveSendFile();
+        	} else {
+        		return;
+        	}
+    	} else {
+    		sendFile();
+    	}
     }
     
     public void recursiveSendFile() throws Exception {
