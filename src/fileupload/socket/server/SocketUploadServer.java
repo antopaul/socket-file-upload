@@ -281,7 +281,7 @@ public class SocketUploadServer implements Runnable {
 	        sendResponse(skt, "This file is not uploaded as file already " +
 	        		"exists with name " + fname + new String(END_HEADER));
 	        sop("This file is not uploaded as file already exists with name " + fname );
-	        skt.close();
+	        closeSocket(skt);
 	        listen(serverSocket);
 	        return;
 	    } else {
@@ -296,7 +296,7 @@ public class SocketUploadServer implements Runnable {
 	    		sop("Successfully created directory.");
 	    	}
 	    	sendResponse(skt, "Successfully created directory in server - " + fname + new String(END_HEADER));
-	    	skt.close();
+	    	closeSocket(skt);
 		    listen(serverSocket);
 		    return;
 	    }
@@ -324,7 +324,7 @@ public class SocketUploadServer implements Runnable {
 	    fos.close();
 	    System.out.println("Saved file " + fname);
 	    sendResponse(skt, "File saved in server." + new String(END_HEADER));
-	    skt.close();
+	    closeSocket(skt);
 	    listen(serverSocket);
 	}
 	
@@ -481,17 +481,6 @@ public class SocketUploadServer implements Runnable {
 				System.arraycopy(buff, pos + END_HEADER.length, temp, 0, remaininguffsize);
 				buff = new byte[temp.length];
 				System.arraycopy(temp, 0, buff, 0, temp.length);
-				/*if(remaininguffsize > 0) {
-					sop("buffer is not empty, refilling with " + (buff.length - remaininguffsize));
-					byte[] temp = new byte[remaininguffsize];
-					System.arraycopy(buff, pos + END_HEADER.length, temp, 0, remaininguffsize);
-					System.arraycopy(temp, 0, buff, 0, temp.length);
-					readFromStream(buff.length - remaininguffsize, is, remaininguffsize);
-				} else {
-					sop("buffer is empty, refilling");
-					readFromStream(BUFFER_SIZE, is, 0);
-				}*/
-
 				sop("header - " + new String(header));
 			} else {
 				//sop("did not find header in buff " + new String(buff));
@@ -507,8 +496,11 @@ public class SocketUploadServer implements Runnable {
 	    PrintWriter writer = new PrintWriter(new OutputStreamWriter(skt.getOutputStream()));
 	    writer.print(msg);
 	    writer.flush();
-	    //writer.close();
 	}
+	
+	public void closeSocket(Socket skt) throws Exception {
+        skt.close();
+    }
 	
 	public static void sop(String m) {
 		//System.out.println(m);

@@ -120,7 +120,7 @@ public class SocketUploadClient {
         }
     	socket = connect(serverAddress, serverPort);
     	sendSingle(f);
-    	socket.close();
+    	closeSocket(socket);
     }
     
     public void sendSingle(File f) throws Exception {
@@ -133,7 +133,7 @@ public class SocketUploadClient {
         if(f.isDirectory()) {
         	String resp = processResponse(socket);
         	sop(resp);
-        	socket.close();
+        	closeSocket(socket);
         	return;
         }
         
