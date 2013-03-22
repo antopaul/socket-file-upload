@@ -128,13 +128,13 @@ public class SocketUploadServer implements Runnable {
 	protected int readServerPort() {
 		// Console don't work in Eclipse
         /*Console console = System.console();
-        console.printf("Please enter server port(81 by default) :");
+        console.printf("Please enter server port(8001 by default) :");
         String portS = console.readLine();
         int port = -1;
         if(portS != null && portS.trim().length() > 0) {
             port = Integer.parseInt(portS);
         }*/
-		int port = readInt("Please enter server port(81 by default) :");
+		int port = readInt("Please enter server port(8001 by default) :");
         return port;
     }
 

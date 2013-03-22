@@ -18,7 +18,7 @@ import java.util.Random;
 public class SocketUploadClient {
 	
 	private String serverAddress = "localhost"; // for testing set to localhost
-	private int serverPort = 81;
+	private int serverPort = 8001;
 	private String filePath = null;
 	private Socket socket = null;
 	private byte[] boundary = null;
@@ -155,13 +155,13 @@ public class SocketUploadClient {
     
     public int readServerPort() {
         /*Console console = System.console();
-        console.printf("Please enter server port(81 by default) :");
+        console.printf("Please enter server port(8001 by default) :");
         String portS = console.readLine();
-        int port = 81;
+        int port = 8001;
         if(portS != null && portS.trim().length() > 0) {
             port = Integer.parseInt(portS);
         }*/
-    	int port = readInt("Please enter server port(81 by default) :");
+    	int port = readInt("Please enter server port(8001 by default) :");
         return port;
     }
     
@@ -300,7 +300,7 @@ public class SocketUploadClient {
     
     public void testSocket() throws Exception {
     	serverAddress = "localhost";
-    	serverPort = 81;
+    	serverPort = 8001;
     	socket = connect(serverAddress, serverPort);
         OutputStream os = socket.getOutputStream();
         BufferedOutputStream bos = new BufferedOutputStream(os);
@@ -312,7 +312,7 @@ public class SocketUploadClient {
     
     public void testSocketVaryFileNameLength() throws Exception {
     	serverAddress = "localhost";
-    	serverPort = 81;
+    	serverPort = 8001;
     	int minfilelength = 1;
     	int maxfilelength = 255;
     	for(int i=minfilelength; i<= maxfilelength; i++) {
@@ -329,7 +329,7 @@ public class SocketUploadClient {
     
     public void testSocketVaryFileContentLength() throws Exception {
     	serverAddress = "localhost";
-    	serverPort = 81;
+    	serverPort = 8001;
     	int minfilelength = 1;
     	int maxfilelength = 32;
     	for(int i=minfilelength; i<= maxfilelength; i++) {
@@ -350,7 +350,7 @@ public class SocketUploadClient {
     
     public void testSocketFilesRecursively() throws Exception {
     	serverAddress = "localhost";
-    	serverPort = 81;
+    	serverPort = 8001;
     	
     	String path = "c:/sockettest/";
     	File file = new File(path);
@@ -360,7 +360,7 @@ public class SocketUploadClient {
     
     public void testSocketFilesFromFolder() throws Exception {
     	serverAddress = "localhost";
-    	serverPort = 81;
+    	serverPort = 8001;
     	
     	String path = "c:/sockettest";
     	File file = new File(path);
