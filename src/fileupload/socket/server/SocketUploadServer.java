@@ -4,7 +4,6 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -332,10 +331,10 @@ public class SocketUploadServer implements Runnable {
 		//sop("Used buff size " + currentusedbuffsize);
 		System.arraycopy(buff, 0, oldbuff, 0, buff.length);
 	    byte[] temp = new byte[size];
-	    int available = bis.available();
+	    /*int available = bis.available();
 	    if(available <= 0) {
 	    	sop("WARN : data not in stream " + available);
-	    }
+	    }*/
 	    if(!endofstream && (c = bis.read(temp)) != -1 ) {
 	    	//sop("Read bytes count " + c);
 	    	//sop("Read bytes value " + new String(temp));

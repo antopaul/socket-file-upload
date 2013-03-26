@@ -17,7 +17,7 @@ import java.util.Random;
 
 public class SocketUploadClient {
 	
-	private String serverAddress = "localhost"; // for testing set to localhost
+	private String serverAddress = "0.0.0.0"; // for testing set to localhost
 	private int serverPort = 8001;
 	private String filePath = null;
 	private Socket socket = null;
@@ -52,9 +52,10 @@ public class SocketUploadClient {
     
     public void execute() throws Exception {
     	String address = readServerAddress();
-    	if(address != null && address.trim().length() == 0) {
+    	if(address != null && address.trim().length() != 0) {
     		serverAddress = address; 
     	}
+
     	int port = readServerPort();
     	if(port != -1) {
     		serverPort = port;
