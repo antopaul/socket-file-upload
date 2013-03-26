@@ -41,9 +41,9 @@ public class SocketUploadServer implements Runnable {
 
 	private static int BUFFER_SIZE = 4096;
 
-	private static File filelogger = null;
+	//private static File filelogger = null;
 
-	private static FileWriter logger = null;
+	//private static FileWriter logger = null;
 
 	private boolean endofstream = false;
 
@@ -58,8 +58,8 @@ public class SocketUploadServer implements Runnable {
 
 		try {
 
-			filelogger = new File(savePath + "/" + "socketserver.log");
-			logger = new FileWriter(filelogger);
+			//filelogger = new File(savePath + "/" + "socketserver.log");
+			//logger = new FileWriter(filelogger);
 
 			startLatch = new CountDownLatch(1);
 			shutdownLatch = new CountDownLatch(1);
@@ -89,27 +89,20 @@ public class SocketUploadServer implements Runnable {
 		}
 
 		if(serverSocket.getLocalPort() != serverPortNumber) {
-			sop("in 1");
 			th.interrupt();
-			sop("in 2");
 			serverSocket.close();
-			sop("in 3");
 			shutdownLatch.await();
-			sop("in 4");
 			serverSocket = new ServerSocket(serverPortNumber);
-			sop("in 5");
 			th = listen(serverSocket);
-			sop("in 6");
 			startLatch = new CountDownLatch(1);
 			shutdownLatch = new CountDownLatch(1);
 			System.out.println("Reconfigured server to use port : " + serverPortNumber);
 		}
 
 		String newSavePath = readSavePath();
-		sop("in 101");
 		if(!savePath.equals(newSavePath)) {
 			savePath = newSavePath;
-			System.out.println("Reconfigured server to use save path : " + savePath);
+			sop("Reconfigured server to use save path : " + savePath);
 		}
 	}
 
@@ -248,7 +241,7 @@ public class SocketUploadServer implements Runnable {
 	    if(buff == null) {
 	    	throw new IllegalStateException("Client did not send any data.");
 	    }
-	    sop("buffer size " + buff.length);
+	    //sop("buffer size " + buff.length);
 	    // first read till file name part is over. file name ends with \r\n
 	    byte[] filetype = readHeader(bis);
 	    if(filetype != null && filetype.length > 0) {
@@ -273,7 +266,7 @@ public class SocketUploadServer implements Runnable {
 	    }
 
 	    sop("File name ..........." + fname);
-	    System.out.println("File name ..........." + fname);
+	    //System.out.println("File name ..........." + fname);
 
 	    File f = new File(savePath + System.getProperty("file.separator") + fname);
 
@@ -285,16 +278,16 @@ public class SocketUploadServer implements Runnable {
 	        listen(serverSocket);
 	        return;
 	    } else {
-	    	sop("Sending ok response for file do not exists in server");
+	    	//sop("Sending ok response for file do not exists in server");
 	    	sendResponse(skt, OK + new String(END_HEADER));
 	    }
 
 	    if(!isFile) {
 	    	// close socket and listen for next file.
 	    	boolean isCreated = f.mkdir();
-	    	if(isCreated) {
-	    		sop("Successfully created directory.");
-	    	}
+	    	//if(isCreated) {
+	    		//sop("Successfully created directory.");
+	    	//}
 	    	sendResponse(skt, "Successfully created directory in server - " + fname + new String(END_HEADER));
 	    	closeSocket(skt);
 		    listen(serverSocket);
@@ -304,9 +297,9 @@ public class SocketUploadServer implements Runnable {
 	    // read boundary
 	    boundary = readHeader(bis);
 
-	    sop("Received boundary length " + boundary.length);
+	    //sop("Received boundary length " + boundary.length);
 
-	    sop("Boundary..........." + new String(boundary));
+	    //sop("Boundary..........." + new String(boundary));
 
 	    //sop("buff ... " + new String(buff));
 
@@ -329,14 +322,14 @@ public class SocketUploadServer implements Runnable {
 	}
 
 	protected void readFromStream(int size, InputStream bis, int destPos) throws IOException {
-		sop("in readfromstream - size - " + size + " , destpos - " + destPos);
+		//sop("in readfromstream - size - " + size + " , destpos - " + destPos);
 		int c = -1;
 		byte[] oldbuff = new byte[buff.length];
 		int currentusedbuffsize = 0;
 		if(destPos > 0) {
 			currentusedbuffsize = destPos;
 		}
-		sop("Used buff size " + currentusedbuffsize);
+		//sop("Used buff size " + currentusedbuffsize);
 		System.arraycopy(buff, 0, oldbuff, 0, buff.length);
 	    byte[] temp = new byte[size];
 	    int available = bis.available();
@@ -344,25 +337,25 @@ public class SocketUploadServer implements Runnable {
 	    	sop("WARN : data not in stream " + available);
 	    }
 	    if(!endofstream && (c = bis.read(temp)) != -1 ) {
-	    	sop("Read bytes count " + c);
+	    	//sop("Read bytes count " + c);
 	    	//sop("Read bytes value " + new String(temp));
 	    	buff = new byte[currentusedbuffsize + c];
 	    	System.arraycopy(oldbuff, 0, buff, 0, currentusedbuffsize);
 	    	System.arraycopy(temp, 0, buff, destPos, c);
 	    } else if(destPos > 0){
-	    	sop("Nothing read from input. Resizing array - old size " + buff.length
-	    			+ ", new size " + currentusedbuffsize);
+	    	//sop("Nothing read from input. Resizing array - old size " + buff.length
+	    	//		+ ", new size " + currentusedbuffsize);
 	    	// resize existing buff
 	    	buff = new byte[currentusedbuffsize];
 	    	System.arraycopy(oldbuff, 0, buff, 0, currentusedbuffsize);
 	    }
 
 	    if(c == -1 ) {
-	    	sop("Reached end of stream " + c + ", " + temp.length);
+	    	//sop("Reached end of stream " + c + ", " + temp.length);
 	    	endofstream = true;
 	    }
 
-	    sop("buffer bytes count " + buff.length);
+	    //sop("buffer bytes count " + buff.length);
 	}
 
 	protected int findInArray(byte[] buff, byte[] find) {
@@ -428,10 +421,10 @@ public class SocketUploadServer implements Runnable {
 		int prevbuffsize = -1;
 		int minbufffillsize = BUFFER_SIZE > BOUNDARY_LENGTH * 2 + 1 ? BUFFER_SIZE : BOUNDARY_LENGTH * 2 + 1;
 		while(buff.length > prevbuffsize && buff.length < minbufffillsize) {
-			sop("in read body buff size " + buff.length);
+			//sop("in read body buff size " + buff.length);
 			if((pos = findInArray(buff, boundary)) > -1) {
-				sop("Found boundary at " + pos);
-				sop("copy size " + (buff.length - boundary.length));
+				//sop("Found boundary at " + pos);
+				//sop("copy size " + (buff.length - boundary.length));
 				body = new byte[pos];
 				System.arraycopy(buff, 0, body, 0, buff.length - boundary.length);
 				buff = new byte[0];
@@ -439,8 +432,8 @@ public class SocketUploadServer implements Runnable {
 				break;
 			}
 
-			sop("reading since buff is not full to check boundary overlap buff size "
-					+ buff.length + " , prevbuffsize - " + prevbuffsize );
+			//sop("reading since buff is not full to check boundary overlap buff size "
+			//		+ buff.length + " , prevbuffsize - " + prevbuffsize );
 			prevbuffsize = buff.length;
 			readFromStream(minbufffillsize, is, buff.length);
 		}
@@ -456,7 +449,7 @@ public class SocketUploadServer implements Runnable {
 			System.arraycopy(temp, 0, buff, 0, temp.length);
 		}
 
-		sop("body size " + body.length);
+		//sop("body size " + body.length);
 		//sop("body  " + new String(body));
 
 		return body;
@@ -470,7 +463,7 @@ public class SocketUploadServer implements Runnable {
 
 		while(pos == -1) {
 			if((pos = findInArray(buff, END_HEADER)) > -1) {
-				sop("header end pos " + pos);
+				//sop("header end pos " + pos);
 
 				// copy header to header array
 				header = new byte[pos];
@@ -481,10 +474,10 @@ public class SocketUploadServer implements Runnable {
 				System.arraycopy(buff, pos + END_HEADER.length, temp, 0, remaininguffsize);
 				buff = new byte[temp.length];
 				System.arraycopy(temp, 0, buff, 0, temp.length);
-				sop("header - " + new String(header));
+				//sop("header - " + new String(header));
 			} else {
 				//sop("did not find header in buff " + new String(buff));
-				sop("reading form stream size " + (buff.length + BUFFER_SIZE));
+				//sop("reading form stream size " + (buff.length + BUFFER_SIZE));
 				readFromStream(buff.length + BUFFER_SIZE, is, buff.length);
 				//sop("after reading from stream buff " + new String(buff));
 			}
@@ -503,13 +496,13 @@ public class SocketUploadServer implements Runnable {
     }
 	
 	public static void sop(String m) {
-		//System.out.println(m);
-		try {
+		System.out.println(m);
+		/*try {
 			logger.write(m + "\r\n");
 			logger.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
-		}
+		}*/
 	}
 
 }
