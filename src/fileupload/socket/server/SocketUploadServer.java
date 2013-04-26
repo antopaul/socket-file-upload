@@ -80,6 +80,11 @@ public class SocketUploadServer implements Runnable {
 
 		System.out.println("Server running at port " + serverPortNumber +
 				", save path = " + savePath);
+		File spath = new File(savePath);
+		if(!spath.exists()) {
+			spath.mkdir();
+			sop("Default save directory created: " + savePath);
+		}
 		System.out.println("To reconfigure, please enter values at below prompt.");
 
 		int port = readServerPort();
@@ -230,6 +235,16 @@ public class SocketUploadServer implements Runnable {
 		String fname = null;
 	    byte[] boundary = null;
 	    endofstream = false;
+
+	    File spath = new File(savePath);
+	    if(!spath.exists()) {
+			sop("Save path does not exist: " + savePath + ". Please provide valid directory for saving files.");
+			sendResponse(skt, "This file is not uploaded as directory for saving file does not exist."
+				        		+ new String(END_HEADER));
+	        closeSocket(skt);
+	        listen(serverSocket);
+	        return;
+		}
 
 	    InputStream is = skt.getInputStream();
 
@@ -493,7 +508,7 @@ public class SocketUploadServer implements Runnable {
 	public void closeSocket(Socket skt) throws Exception {
         skt.close();
     }
-	
+
 	public static void sop(String m) {
 		System.out.println(m);
 		/*try {
