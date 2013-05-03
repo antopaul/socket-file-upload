@@ -33,21 +33,24 @@ public class SocketUploadServer implements Runnable {
 
 	public static byte[] END_HEADER = new byte[]{SEMI_COLON, CR, LF, CR, LF};
 	public static byte[] EOF = new byte[]{CR, LF, CR, LF};
+	
+	public static String END_OF_CONNECTION = "CLOSE";
 
 	private static int BOUNDARY_LENGTH = 24;
 
 	private byte[] buff = null;
 
-	private static int BUFFER_SIZE = 4096;
+	private static int BUFFER_SIZE = 8;
 
 	//private static File filelogger = null;
 
 	//private static FileWriter logger = null;
 
 	private boolean endofstream = false;
+	private boolean endoffile = false;
 
 	public static String OK = "ok";
-
+	
 	public static void main(String[] args) {
 		SocketUploadServer server = new SocketUploadServer();
 		server.init();
@@ -63,9 +66,7 @@ public class SocketUploadServer implements Runnable {
 			startLatch = new CountDownLatch(1);
 			shutdownLatch = new CountDownLatch(1);
 
-			serverSocket = new ServerSocket(serverPortNumber);
-
-			Thread th = listen(serverSocket);
+			Thread th = startListen();
 			startLatch.await();
 
 			reconfigureServer(th);
@@ -96,8 +97,7 @@ public class SocketUploadServer implements Runnable {
 			th.interrupt();
 			serverSocket.close();
 			shutdownLatch.await();
-			serverSocket = new ServerSocket(serverPortNumber);
-			th = listen(serverSocket);
+			th = startListen();
 			startLatch = new CountDownLatch(1);
 			shutdownLatch = new CountDownLatch(1);
 			System.out.println("Reconfigured server to use port : " + serverPortNumber);
@@ -189,32 +189,27 @@ public class SocketUploadServer implements Runnable {
 		return input;
 	}
 
+	public void listen(final ServerSocket myServer) {
 
-	public Thread listen(final ServerSocket serverSocket) throws Exception {
-
-		// Use a thread to listen as ServerSocket.accept() blocks current
-		// thread.
-		Thread th = new Thread(this);
-		th.start();
-		return th;
-	}
-
-	public void run() {
 		Socket skt = null;
-		ServerSocket myServer = serverSocket;
 		sop("Waiting for connection...................");
 		startLatch.countDown();
 
 		try {
+
 			skt = serverSocket.accept();
 			InetSocketAddress remoteAddr = (InetSocketAddress) skt
 					.getRemoteSocketAddress();
 			sop("");
 			sop("Received connection from "
 					+ remoteAddr.getAddress().getHostAddress());
-			process(skt);
+			while(!endofstream) {
+				//sop("processing file .............");
+				process(skt);
+			}
 
 		} catch (SocketException se) {
+			se.printStackTrace();
 			if(myServer.isClosed()) {
 				sop("Server is shutdown........ by socket close");
 			} else {
@@ -227,9 +222,30 @@ public class SocketUploadServer implements Runnable {
 		}
 	}
 
+
+	public Thread startListen() throws Exception {
+		//sop("in startListen");
+		// Use a thread to listen as ServerSocket.accept() blocks current
+		// thread.
+		serverSocket = new ServerSocket(serverPortNumber);
+		Thread th = new Thread(this);
+		th.setDaemon(false);
+		th.start();
+		return th;
+	}
+
+	public void run() {
+		endofstream = true;
+		while(endofstream) {
+			endofstream = false;
+			//sop("innnnnnnnnnnnnnnnnnnnnnn");
+			listen(serverSocket);
+		}
+	}
+
 	public void process(Socket skt) throws Exception {
 
-		//sop("in...........");
+		//sop("in..........." + endofstream);
 
 	    boolean isFile = true;
 		String fname = null;
@@ -241,8 +257,10 @@ public class SocketUploadServer implements Runnable {
 			sop("Save path does not exist: " + savePath + ". Please provide valid directory for saving files.");
 			sendResponse(skt, "This file is not uploaded as directory for saving file does not exist."
 				        		+ new String(END_HEADER));
-	        closeSocket(skt);
-	        listen(serverSocket);
+			resetSocket();
+	        //closeSocket(skt);
+	        //listen(serverSocket);
+			//process(skt);
 	        return;
 		}
 
@@ -252,6 +270,12 @@ public class SocketUploadServer implements Runnable {
 	    buff = new byte[BUFFER_SIZE];
 	    readFromStream(BUFFER_SIZE, bis, 0);
 
+	    if(endofstream) {
+	    	skt.close();
+	    	//listen(serverSocket);
+	    	return;
+	    }
+	    
 	    if(buff == null) {
 	    	throw new IllegalStateException("Client did not send any data.");
 	    }
@@ -288,8 +312,10 @@ public class SocketUploadServer implements Runnable {
 	        sendResponse(skt, "This file is not uploaded as file already " +
 	        		"exists with name " + fname + new String(END_HEADER));
 	        sop("This file is not uploaded as file already exists with name " + fname );
-	        closeSocket(skt);
-	        listen(serverSocket);
+	        resetSocket();
+	        //closeSocket(skt);
+	        //listen(serverSocket);
+	        //process(skt);
 	        return;
 	    } else {
 	    	//sop("Sending ok response for file do not exists in server");
@@ -303,8 +329,10 @@ public class SocketUploadServer implements Runnable {
 	    		//sop("Successfully created directory.");
 	    	//}
 	    	sendResponse(skt, "Successfully created directory in server - " + fname + new String(END_HEADER));
-	    	closeSocket(skt);
-		    listen(serverSocket);
+	    	resetSocket();
+	    	//closeSocket(skt);
+		    //listen(serverSocket);
+	    	//process(skt);
 		    return;
 	    }
 
@@ -319,24 +347,32 @@ public class SocketUploadServer implements Runnable {
 
 	    // read content of file and write it to file.
 
-	    FileOutputStream fos = new FileOutputStream(f);
+	    writeFile(f, bis, boundary);
+	    System.out.println("Saved file " + fname);
+	    sendResponse(skt, "File saved in server." + new String(END_HEADER));
+	    resetSocket();
+	    endoffile = false;
+	    //closeSocket(skt);
+	    //listen(serverSocket);
+	    //process(skt);
+	}
+	
+	protected void writeFile(File f, InputStream bis, byte[] boundary) throws IOException {
+		FileOutputStream fos = new FileOutputStream(f);
 
 	    byte[] body = null;
-	    while((body = readTillBoundary(bis, boundary)).length > 0) {
+	    while(!endoffile) {
+	    	body = readTillBoundary(bis, boundary);
 	    	//sop("Writing to file " + new String(body));
 	    	fos.write(body);
 	    	fos.flush();
 	    }
 
 	    fos.close();
-	    System.out.println("Saved file " + fname);
-	    sendResponse(skt, "File saved in server." + new String(END_HEADER));
-	    closeSocket(skt);
-	    listen(serverSocket);
 	}
 
 	protected void readFromStream(int size, InputStream bis, int destPos) throws IOException {
-		//sop("in readfromstream - size - " + size + " , destpos - " + destPos);
+		//sop("in readfromstream - size - " + size + " , destpos - " + destPos + " , endofstream " + endofstream);
 		int c = -1;
 		byte[] oldbuff = new byte[buff.length];
 		int currentusedbuffsize = 0;
@@ -357,8 +393,8 @@ public class SocketUploadServer implements Runnable {
 	    	System.arraycopy(oldbuff, 0, buff, 0, currentusedbuffsize);
 	    	System.arraycopy(temp, 0, buff, destPos, c);
 	    } else if(destPos > 0){
-	    	//sop("Nothing read from input. Resizing array - old size " + buff.length
-	    	//		+ ", new size " + currentusedbuffsize);
+	    	sop("Nothing read from input. Resizing array - old size " + buff.length
+	    			+ ", new size " + currentusedbuffsize);
 	    	// resize existing buff
 	    	buff = new byte[currentusedbuffsize];
 	    	System.arraycopy(oldbuff, 0, buff, 0, currentusedbuffsize);
@@ -367,6 +403,7 @@ public class SocketUploadServer implements Runnable {
 	    if(c == -1 ) {
 	    	//sop("Reached end of stream " + c + ", " + temp.length);
 	    	endofstream = true;
+	    	//endoffile = true;
 	    }
 
 	    //sop("buffer bytes count " + buff.length);
@@ -415,6 +452,10 @@ public class SocketUploadServer implements Runnable {
 	}
 
 	protected int find(byte[] buff, byte find, int start) {
+		//sop("in find " + buff.length + " - " + new String(buff));
+		if(buff.length == 4096) {
+			throw new RuntimeException("errrrr");
+		}
 		int pos = -1;
 		for(int i = start; i < buff.length; i++) {
 			if(buff[i] == find) {
@@ -428,13 +469,14 @@ public class SocketUploadServer implements Runnable {
 		//sop("in read body. buff before reading from stream " + new String(buff));
 		int pos = -1;
 		byte[] body = new byte[0];
+
 		if(endofstream) {
 			return body;
 		}
 		// read till buff size is boundary length + 1
 		int prevbuffsize = -1;
 		int minbufffillsize = BUFFER_SIZE > BOUNDARY_LENGTH * 2 + 1 ? BUFFER_SIZE : BOUNDARY_LENGTH * 2 + 1;
-		while(buff.length > prevbuffsize && buff.length < minbufffillsize) {
+		while(buff.length > prevbuffsize && buff.length < minbufffillsize && !endoffile) {
 			//sop("in read body buff size " + buff.length);
 			if((pos = findInArray(buff, boundary)) > -1) {
 				//sop("Found boundary at " + pos);
@@ -442,7 +484,7 @@ public class SocketUploadServer implements Runnable {
 				body = new byte[pos];
 				System.arraycopy(buff, 0, body, 0, buff.length - boundary.length);
 				buff = new byte[0];
-				endofstream = true;
+				endoffile = true;
 				break;
 			}
 
@@ -476,6 +518,7 @@ public class SocketUploadServer implements Runnable {
 		byte[] header = null;
 
 		while(pos == -1) {
+			//sop("in readheader loop");
 			if((pos = findInArray(buff, END_HEADER)) > -1) {
 				//sop("header end pos " + pos);
 
@@ -504,6 +547,10 @@ public class SocketUploadServer implements Runnable {
 	    writer.print(msg);
 	    writer.flush();
 	}
+	
+	public void resetSocket()  {
+        buff = null;
+    }
 
 	public void closeSocket(Socket skt) throws Exception {
         skt.close();

@@ -3,6 +3,7 @@ package fileupload.socket.client;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -30,12 +31,13 @@ public class SocketUploadClient {
 	public static byte COLON = 58;
 	
 	public static byte[] END_HEADER = new byte[]{SEMI_COLON, CR, LF, CR, LF};
-	public static byte[] EOF = new byte[]{CR, LF, CR, LF};
 	
 	public static String OK = "ok";
 	
 	public static String TYPE_FILE = "Type : File";
 	public static String TYPE_DIRECTORY = "Type : Directory";
+	
+	private static int BUFFER_SIZE = 8;
 	
 	Random rnd = new Random();
 	
@@ -77,6 +79,7 @@ public class SocketUploadClient {
     	} else {
     		sendFile();
     	}
+    	closeSocket(socket);
     }
     
     public void recursiveSendFile() throws Exception {
@@ -119,22 +122,24 @@ public class SocketUploadClient {
         	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
         	return;
         }
-    	socket = connect(serverAddress, serverPort);
+        if(socket == null) {
+        	socket = connect(serverAddress, serverPort);
+        }
     	sendSingle(f);
-    	closeSocket(socket);
+    	//closeSocket(socket);
     }
     
     public void sendSingle(File f) throws Exception {
 
         sendFilename(socket, f);
         // check response to see if file already exists.
-        if(checkFileExistsInServer(socket, f)) {
+        if(checkFileExistsInServer(socket)) {
         	return;
         }
         if(f.isDirectory()) {
         	String resp = processResponse(socket);
         	sop(resp);
-        	closeSocket(socket);
+        	//closeSocket(socket);
         	return;
         }
         
@@ -236,7 +241,7 @@ public class SocketUploadClient {
         return sb.toString();
     }
     
-    public boolean checkFileExistsInServer(Socket socket, File file) throws Exception {
+    public boolean checkFileExistsInServer(Socket socket) throws Exception {
     	boolean fileexists = false;
     	// check response to see if file already exists.
         String resp = processResponse(socket);
@@ -252,7 +257,7 @@ public class SocketUploadClient {
         BufferedOutputStream bos = new BufferedOutputStream(os);
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f));
         int c = 0;
-        byte[] buff = new byte[4096];
+        byte[] buff = new byte[BUFFER_SIZE];
         
         while((c = bis.read(buff)) != -1 ) {
             bos.write(buff,0,c);
@@ -312,41 +317,109 @@ public class SocketUploadClient {
     }
     
     public void testSocketVaryFileNameLength() throws Exception {
-    	serverAddress = "localhost";
+    	serverAddress = "localhost"; 
     	serverPort = 8001;
     	int minfilelength = 1;
     	int maxfilelength = 255;
+    	String content = "ContentContentContentContent";
+    	String boundary = "123456789012345678901234";
+    	socket = connect(serverAddress, serverPort);
+    	OutputStream os = socket.getOutputStream();
+        BufferedOutputStream bos = new BufferedOutputStream(os);
     	for(int i=minfilelength; i<= maxfilelength; i++) {
-	    	socket = connect(serverAddress, serverPort);
-	        OutputStream os = socket.getOutputStream();
-	        BufferedOutputStream bos = new BufferedOutputStream(os);
-	        bos.write(new String(testGenerateString("a", i) + ";\r\n\r\n123456789012345678901234;\r\n\r\nContentContentContentContent123456789012345678901234").getBytes());
-	        bos.close();
-	        os.close();
-	        socket.close();
+	    	
+	    	String fname = new String(testGenerateString("a", i));
+	    	testSaveFile(fname, "c:/sockettest", content);
+	        
+	        bos.write(TYPE_FILE.getBytes());
+	        bos.write(END_HEADER);
+	        bos.write(fname.getBytes());
+	        bos.write(END_HEADER);
+	        bos.flush();
+	        if(checkFileExistsInServer(socket)) {
+	        	continue;
+	        }
+	        bos.write(boundary.getBytes());
+	        bos.write(END_HEADER);
+	        bos.flush();
+	        bos.write(new String(content + boundary).getBytes());
+	        bos.flush();
+	        String resp = processResponse(socket);
+	        System.out.println(resp);
 	        System.out.println("Test complete - " + i);
     	}
+    	bos.close();
+        os.close();
+        socket.close();
+        System.out.println("Full test complete............");
     }
     
     public void testSocketVaryFileContentLength() throws Exception {
+    	serverAddress = "localhost"; 
+    	serverPort = 8001;
+    	int minfilelength = 256;
+    	int maxfilelength = 1024;
+    	String content = null;
+    	String boundary = "123456789012345678901234";
+    	socket = connect(serverAddress, serverPort);
+    	OutputStream os = socket.getOutputStream();
+        BufferedOutputStream bos = new BufferedOutputStream(os);
+    	for(int i=minfilelength; i<= maxfilelength; i++) {
+	    	
+	    	String fname = new String(""+i);
+	    	content = testGenerateString("a", i);
+	    	testSaveFile(fname, "c:/sockettest", content);
+	        
+	        bos.write(TYPE_FILE.getBytes());
+	        bos.write(END_HEADER);
+	        bos.write(fname.getBytes());
+	        bos.write(END_HEADER);
+	        bos.flush();
+	        sop("Send type and file name");
+	        if(checkFileExistsInServer(socket)) {
+	        	continue;
+	        }
+	        bos.write(boundary.getBytes());
+	        bos.write(END_HEADER);
+	        bos.flush();
+	        bos.write(new String(content + boundary).getBytes());
+	        bos.flush();
+	        sop("send content");
+	        String resp = processResponse(socket);
+	        System.out.println(resp);
+	        System.out.println("Test complete - " + i);
+    	}
+    	bos.close();
+        os.close();
+        socket.close();
+        System.out.println("Full test complete............");
+    }
+    
+    public void testSocketVaryFileContentLength1() throws Exception {
     	serverAddress = "localhost";
     	serverPort = 8001;
     	int minfilelength = 1;
     	int maxfilelength = 32;
+    	socket = connect(serverAddress, serverPort);
+    	OutputStream os = socket.getOutputStream();
+    	ByteArrayOutputStream bos = null;
     	for(int i=minfilelength; i<= maxfilelength; i++) {
     		
-	    	socket = connect(serverAddress, serverPort);
-	        OutputStream os = socket.getOutputStream();
-	        BufferedOutputStream bos = new BufferedOutputStream(os);
+	    	
+	        
+	        //BufferedOutputStream bos = new BufferedOutputStream(os);
+	        bos = new ByteArrayOutputStream();
 	        bos.write(new String(i 
 	        		+ ";\r\n\r\n111111111111111111111111;\r\n\r\n" + 
 	        		testGenerateString("a", i)+ "111111111111111111111111").getBytes());
-	        bos.close();
-	        os.close();
-	        socket.close();
+	        
+	        
 	        testSaveFile(i+"", "c:/sockettest", testGenerateString("a", i));
 	        System.out.println("Test complete - " + i);
     	}
+    	bos.close();
+    	os.close();
+        socket.close();
     }
     
     public void testSocketFilesRecursively() throws Exception {
