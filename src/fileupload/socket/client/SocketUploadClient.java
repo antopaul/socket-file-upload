@@ -37,7 +37,9 @@ public class SocketUploadClient {
 	public static String TYPE_FILE = "Type : File";
 	public static String TYPE_DIRECTORY = "Type : Directory";
 	
-	private static int BUFFER_SIZE = 8;
+	private static int BUFFER_SIZE = 1024 * 1024;
+	
+	
 	
 	Random rnd = new Random();
 	
@@ -57,29 +59,45 @@ public class SocketUploadClient {
     	if(address != null && address.trim().length() != 0) {
     		serverAddress = address; 
     	}
+    	
+    	long startTime;
+    	long endTime;
 
     	int port = readServerPort();
     	if(port != -1) {
     		serverPort = port;
     	}
-    	filePath = readFilePath();
-    	File f = new File(filePath);
-    	if(!f.exists()) {
-        	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
-        	return;
-        }
+    	File f = null;
+    	while(true) {
+	    	filePath = readFilePath();
+	    	if(filePath == null || "".equals(filePath.trim())) {
+	    		System.out.println("Please enter valid file name.");
+	        	continue;
+	    	}
+	    	f = new File(filePath);
+	    	if(!f.exists()) {
+	        	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
+	        	continue;
+	        }
+	    	break;
+    	}
     	if(f.isDirectory()) {
     		String recursive = readString("You entered a directory path. " +
         			"Do you want to upload all files recursively from that directory?(y/n) : ");
         	if("y".equalsIgnoreCase(recursive)) {
-        			recursiveSendFile();
+        		startTime = System.currentTimeMillis();
+        		recursiveSendFile();
         	} else {
         		return;
         	}
     	} else {
+    		startTime = System.currentTimeMillis();
     		sendFile();
     	}
+    	endTime = System.currentTimeMillis();
     	closeSocket(socket);
+    	
+    	System.out.println("Total time to send files " + (endTime - startTime) / 1000 + "s");
     }
     
     public void recursiveSendFile() throws Exception {
@@ -254,13 +272,14 @@ public class SocketUploadClient {
     
     public void sendFile(Socket skt, File f, byte[] bnd) throws Exception {
         OutputStream os = skt.getOutputStream();
-        BufferedOutputStream bos = new BufferedOutputStream(os);
-        BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f));
+        BufferedOutputStream bos = new BufferedOutputStream(os, BUFFER_SIZE);
+        BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f), BUFFER_SIZE);
         int c = 0;
         byte[] buff = new byte[BUFFER_SIZE];
         
         while((c = bis.read(buff)) != -1 ) {
             bos.write(buff,0,c);
+            bos.flush();
         }
         // Write boundary to end sending file.
         bos.write(bnd);
@@ -273,6 +292,7 @@ public class SocketUploadClient {
     public void sendFilename(Socket skt, File file) throws Exception {
     	String filename = file.getName();
         OutputStream os = skt.getOutputStream();
+        System.out.println("SO_SNDBUF " + skt.getSendBufferSize());
         BufferedOutputStream bos = new BufferedOutputStream(os);
         if(file.isFile()) {
         	bos.write(TYPE_FILE.getBytes());
@@ -301,7 +321,7 @@ public class SocketUploadClient {
         //bos.write(new String("123456789012345678901234").getBytes());
         bos.write(END_HEADER);
         bos.flush();
-        System.out.println("Sent boundary.");
+        //System.out.println("Sent boundary.");
     }
     
     public void testSocket() throws Exception {
@@ -467,7 +487,7 @@ public class SocketUploadClient {
     public Socket connect(String server,int port) throws Exception {
         
         Socket skt = new Socket(server, port);
-        
+        skt.setSendBufferSize(BUFFER_SIZE);
         return skt;
     }
     
@@ -478,11 +498,11 @@ public class SocketUploadClient {
 			int a = rnd.nextInt(9);
 			ia[i] = (byte)a;
 		}
-		System.out.print("boundary - ");
-		for(int i=0; i<ia.length; i++) {
-			System.out.print(ia[i]);
-		}
-		System.out.println();
+		//sop("boundary - ");
+		//for(int i=0; i<ia.length; i++) {
+		//	System.out.print(ia[i]);
+		//}
+		//System.out.println();
 		
 		return ia;
     }

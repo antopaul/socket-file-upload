@@ -1,6 +1,7 @@
 package fileupload.socket.server;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -40,7 +41,7 @@ public class SocketUploadServer implements Runnable {
 
 	private byte[] buff = null;
 
-	private static int BUFFER_SIZE = 8;
+	private static int BUFFER_SIZE = 1024 * 1024;
 
 	//private static File filelogger = null;
 
@@ -198,6 +199,7 @@ public class SocketUploadServer implements Runnable {
 		try {
 
 			skt = serverSocket.accept();
+			skt.setReceiveBufferSize(BUFFER_SIZE);
 			InetSocketAddress remoteAddr = (InetSocketAddress) skt
 					.getRemoteSocketAddress();
 			sop("");
@@ -244,7 +246,7 @@ public class SocketUploadServer implements Runnable {
 	}
 
 	public void process(Socket skt) throws Exception {
-
+		System.out.println("SO_SNDBUF " + skt.getSendBufferSize());
 		//sop("in..........." + endofstream);
 
 	    boolean isFile = true;
@@ -266,7 +268,7 @@ public class SocketUploadServer implements Runnable {
 
 	    InputStream is = skt.getInputStream();
 
-	    BufferedInputStream bis = new BufferedInputStream(is);
+	    BufferedInputStream bis = new BufferedInputStream(is, BUFFER_SIZE);
 	    buff = new byte[BUFFER_SIZE];
 	    readFromStream(BUFFER_SIZE, bis, 0);
 
@@ -359,16 +361,17 @@ public class SocketUploadServer implements Runnable {
 	
 	protected void writeFile(File f, InputStream bis, byte[] boundary) throws IOException {
 		FileOutputStream fos = new FileOutputStream(f);
+		BufferedOutputStream bos = new BufferedOutputStream(fos, BUFFER_SIZE);
 
 	    byte[] body = null;
 	    while(!endoffile) {
 	    	body = readTillBoundary(bis, boundary);
 	    	//sop("Writing to file " + new String(body));
-	    	fos.write(body);
-	    	fos.flush();
+	    	bos.write(body);
+	    	bos.flush();
 	    }
 
-	    fos.close();
+	    bos.close();
 	}
 
 	protected void readFromStream(int size, InputStream bis, int destPos) throws IOException {
