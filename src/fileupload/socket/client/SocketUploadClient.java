@@ -83,7 +83,10 @@ public class SocketUploadClient {
     	}
     	if(f.isDirectory()) {
     		String recursive = readString("You entered a directory path. " +
-        			"Do you want to upload all files recursively from that directory?(y/n) : ");
+        			"Do you want to upload all files recursively from that directory?(Y/n) : ");
+    		if(recursive == null || "".equals(recursive)) {
+    			recursive = "y";
+    		}
         	if("y".equalsIgnoreCase(recursive)) {
         		startTime = System.currentTimeMillis();
         		recursiveSendFile();
@@ -105,7 +108,7 @@ public class SocketUploadClient {
     	
     	if(basePath == null) {
     		basePath = filePath;
-    		sop("basepath - " + basePath);
+    		//sop("basepath - " + basePath);
     	}
     	
         if(!f.exists()) {
@@ -292,7 +295,6 @@ public class SocketUploadClient {
     public void sendFilename(Socket skt, File file) throws Exception {
     	String filename = file.getName();
         OutputStream os = skt.getOutputStream();
-        System.out.println("SO_SNDBUF " + skt.getSendBufferSize());
         BufferedOutputStream bos = new BufferedOutputStream(os);
         if(file.isFile()) {
         	bos.write(TYPE_FILE.getBytes());
@@ -488,6 +490,7 @@ public class SocketUploadClient {
         
         Socket skt = new Socket(server, port);
         skt.setSendBufferSize(BUFFER_SIZE);
+        sop("SO_SNDBUF " + skt.getSendBufferSize());
         return skt;
     }
     

@@ -195,21 +195,25 @@ public class SocketUploadServer implements Runnable {
 		Socket skt = null;
 		sop("Waiting for connection...................");
 		startLatch.countDown();
+		long startTime = 0l;
+		long endTime = 0l;
 
 		try {
 
 			skt = serverSocket.accept();
-			skt.setReceiveBufferSize(BUFFER_SIZE);
+			startTime = System.currentTimeMillis();
 			InetSocketAddress remoteAddr = (InetSocketAddress) skt
 					.getRemoteSocketAddress();
 			sop("");
 			sop("Received connection from "
 					+ remoteAddr.getAddress().getHostAddress());
+			skt.setReceiveBufferSize(BUFFER_SIZE);
+			sop("SO_RCVBUF " + skt.getReceiveBufferSize());
 			while(!endofstream) {
 				//sop("processing file .............");
 				process(skt);
 			}
-
+			endTime = System.currentTimeMillis();
 		} catch (SocketException se) {
 			se.printStackTrace();
 			if(myServer.isClosed()) {
@@ -222,8 +226,8 @@ public class SocketUploadServer implements Runnable {
 			e.printStackTrace(System.out);
 			throw new IllegalStateException(e);
 		}
+		System.out.println("Total time to receive files " + (endTime - startTime) / 1000 + "s");
 	}
-
 
 	public Thread startListen() throws Exception {
 		//sop("in startListen");
@@ -240,13 +244,12 @@ public class SocketUploadServer implements Runnable {
 		endofstream = true;
 		while(endofstream) {
 			endofstream = false;
-			//sop("innnnnnnnnnnnnnnnnnnnnnn");
 			listen(serverSocket);
 		}
 	}
 
 	public void process(Socket skt) throws Exception {
-		System.out.println("SO_SNDBUF " + skt.getSendBufferSize());
+		
 		//sop("in..........." + endofstream);
 
 	    boolean isFile = true;
@@ -260,9 +263,6 @@ public class SocketUploadServer implements Runnable {
 			sendResponse(skt, "This file is not uploaded as directory for saving file does not exist."
 				        		+ new String(END_HEADER));
 			resetSocket();
-	        //closeSocket(skt);
-	        //listen(serverSocket);
-			//process(skt);
 	        return;
 		}
 
@@ -274,7 +274,6 @@ public class SocketUploadServer implements Runnable {
 
 	    if(endofstream) {
 	    	skt.close();
-	    	//listen(serverSocket);
 	    	return;
 	    }
 	    
@@ -315,9 +314,6 @@ public class SocketUploadServer implements Runnable {
 	        		"exists with name " + fname + new String(END_HEADER));
 	        sop("This file is not uploaded as file already exists with name " + fname );
 	        resetSocket();
-	        //closeSocket(skt);
-	        //listen(serverSocket);
-	        //process(skt);
 	        return;
 	    } else {
 	    	//sop("Sending ok response for file do not exists in server");
@@ -325,16 +321,12 @@ public class SocketUploadServer implements Runnable {
 	    }
 
 	    if(!isFile) {
-	    	// close socket and listen for next file.
 	    	boolean isCreated = f.mkdir();
 	    	//if(isCreated) {
 	    		//sop("Successfully created directory.");
 	    	//}
 	    	sendResponse(skt, "Successfully created directory in server - " + fname + new String(END_HEADER));
 	    	resetSocket();
-	    	//closeSocket(skt);
-		    //listen(serverSocket);
-	    	//process(skt);
 		    return;
 	    }
 
@@ -354,9 +346,6 @@ public class SocketUploadServer implements Runnable {
 	    sendResponse(skt, "File saved in server." + new String(END_HEADER));
 	    resetSocket();
 	    endoffile = false;
-	    //closeSocket(skt);
-	    //listen(serverSocket);
-	    //process(skt);
 	}
 	
 	protected void writeFile(File f, InputStream bis, byte[] boundary) throws IOException {
