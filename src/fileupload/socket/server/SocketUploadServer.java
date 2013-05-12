@@ -449,9 +449,6 @@ public class SocketUploadServer implements Runnable {
 
 	protected int find(byte[] buff, byte find, int start) {
 		//sop("in find " + buff.length + " - " + new String(buff));
-		if(buff.length == 4096) {
-			throw new RuntimeException("errrrr");
-		}
 		int pos = -1;
 		for(int i = start; i < buff.length; i++) {
 			if(buff[i] == find) {
