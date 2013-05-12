@@ -211,6 +211,7 @@ public class SocketUploadServer implements Runnable {
 					+ remoteAddr.getAddress().getHostAddress());
 			//skt.setReceiveBufferSize(BUFFER_SIZE);
 			sop("SO_RCVBUF " + skt.getReceiveBufferSize());
+			skt.setTcpNoDelay(true);
 			while(!endofstream) {
 				//sop("processing file .............");
 				process(skt);
