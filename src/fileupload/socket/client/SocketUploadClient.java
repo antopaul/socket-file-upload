@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -254,7 +255,7 @@ public class SocketUploadClient {
     	
     	StringBuilder sb = new StringBuilder();
     	
-        BufferedInputStream bis = new BufferedInputStream(skt.getInputStream());
+        InputStream bis = skt.getInputStream();
         //byte[] buff = new byte[1];
         int c = -1;
         // responses will be small so read that to memory.
