@@ -41,7 +41,7 @@ public class SocketUploadServer implements Runnable {
 
 	private byte[] buff = null;
 
-	private static int BUFFER_SIZE = 1024 * 1024;
+	private static int BUFFER_SIZE = 1024 * 64;
 
 	//private static File filelogger = null;
 
@@ -51,6 +51,8 @@ public class SocketUploadServer implements Runnable {
 	private boolean endoffile = false;
 
 	public static String OK = "ok";
+	
+	long respTime = 0l;
 	
 	public static void main(String[] args) {
 		SocketUploadServer server = new SocketUploadServer();
@@ -207,7 +209,7 @@ public class SocketUploadServer implements Runnable {
 			sop("");
 			sop("Received connection from "
 					+ remoteAddr.getAddress().getHostAddress());
-			skt.setReceiveBufferSize(BUFFER_SIZE);
+			//skt.setReceiveBufferSize(BUFFER_SIZE);
 			sop("SO_RCVBUF " + skt.getReceiveBufferSize());
 			while(!endofstream) {
 				//sop("processing file .............");
@@ -227,6 +229,7 @@ public class SocketUploadServer implements Runnable {
 			throw new IllegalStateException(e);
 		}
 		System.out.println("Total time to receive files " + (endTime - startTime) / 1000 + "s");
+		System.out.println("Time for sending response " + (respTime / 1000) + "s");
 	}
 
 	public Thread startListen() throws Exception {
@@ -304,7 +307,7 @@ public class SocketUploadServer implements Runnable {
 	    	throw new IllegalStateException("File name not found....");
 	    }
 
-	    sop("File name ..........." + fname);
+	    sop("File name " + fname);
 	    //System.out.println("File name ..........." + fname);
 
 	    File f = new File(savePath + System.getProperty("file.separator") + fname);
@@ -342,7 +345,7 @@ public class SocketUploadServer implements Runnable {
 	    // read content of file and write it to file.
 
 	    writeFile(f, bis, boundary);
-	    System.out.println("Saved file " + fname);
+	    sop("Saved file " + fname);
 	    sendResponse(skt, "File saved in server." + new String(END_HEADER));
 	    resetSocket();
 	    endoffile = false;
@@ -535,9 +538,13 @@ public class SocketUploadServer implements Runnable {
 	}
 
 	public void sendResponse(Socket skt, String msg) throws Exception {
+		long start = System.currentTimeMillis();
 	    PrintWriter writer = new PrintWriter(new OutputStreamWriter(skt.getOutputStream()));
 	    writer.print(msg);
 	    writer.flush();
+	    
+	    respTime += System.currentTimeMillis() - start;
+	    
 	}
 	
 	public void resetSocket()  {

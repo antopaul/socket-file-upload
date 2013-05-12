@@ -37,13 +37,17 @@ public class SocketUploadClient {
 	public static String TYPE_FILE = "Type : File";
 	public static String TYPE_DIRECTORY = "Type : Directory";
 	
-	private static int BUFFER_SIZE = 1024 * 1024;
+	private static int BUFFER_SIZE = 1024 * 64;
 	
 	
 	
 	Random rnd = new Random();
 	
 	private static int BOUNDARY_LENGTH = 24;
+	
+	private int errorCount = 0;
+	
+	private long respTime = 0l;
 
     public static void main(String args[]) throws Exception{
         SocketUploadClient client = new SocketUploadClient();
@@ -101,6 +105,8 @@ public class SocketUploadClient {
     	closeSocket(socket);
     	
     	System.out.println("Total time to send files " + (endTime - startTime) / 1000 + "s");
+    	System.out.println("Time for processing response " + (respTime/1000) + "s");
+    	System.out.println("Total errors : " + errorCount);
     }
     
     public void recursiveSendFile() throws Exception {
@@ -112,7 +118,7 @@ public class SocketUploadClient {
     	}
     	
         if(!f.exists()) {
-        	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
+        	sop("File does not exist " + filePath + ". Please recheck filename.");
         	return;
         }
         
@@ -120,7 +126,7 @@ public class SocketUploadClient {
         if(f.isDirectory()) {
 	        File[] files = f.listFiles();
 	        if(files.length == 0) {
-	        	sop("The given directory don't have any files int it - " + f.getName());
+	        	sop("The given directory don't have any files in it - " + f.getName());
 	        }
 	    	for(int i = 0; i<files.length; i++) {
 	    		filePath = files[i].getAbsolutePath();
@@ -140,7 +146,7 @@ public class SocketUploadClient {
     	File f = new File(filePath);
     	
         if(!f.exists()) {
-        	System.out.println("File does not exist " + filePath + ". Please recheck filename.");
+        	sop("File does not exist " + filePath + ". Please recheck filename.");
         	return;
         }
         if(socket == null) {
@@ -168,7 +174,7 @@ public class SocketUploadClient {
         sendBoundary(socket,boundary);
         sendFile(socket, f, boundary);
         String resp = processResponse(socket);
-        System.out.println(resp);
+        sop(resp);
        
     }
     
@@ -240,7 +246,8 @@ public class SocketUploadClient {
     }
     
     public String processResponse(Socket skt) throws Exception{
-    	System.out.println("Waiting for response");
+    	long start = System.currentTimeMillis();
+    	//System.out.println("Waiting for response");
     	
     	StringBuilder sb = new StringBuilder();
     	
@@ -258,7 +265,7 @@ public class SocketUploadClient {
         		break;
         	}
         }
-        
+        respTime += System.currentTimeMillis() - start; 
         return sb.toString();
     }
     
@@ -267,29 +274,37 @@ public class SocketUploadClient {
     	// check response to see if file already exists.
         String resp = processResponse(socket);
         if(!OK.equals(resp)) {
-        	System.out.println("Error sending file. " + resp);
+        	sop("Error sending file. " + resp);
         	fileexists = true;
         }
     	return fileexists;
     }
     
-    public void sendFile(Socket skt, File f, byte[] bnd) throws Exception {
-        OutputStream os = skt.getOutputStream();
-        BufferedOutputStream bos = new BufferedOutputStream(os, BUFFER_SIZE);
-        BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f), BUFFER_SIZE);
-        int c = 0;
-        byte[] buff = new byte[BUFFER_SIZE];
-        
-        while((c = bis.read(buff)) != -1 ) {
-            bos.write(buff,0,c);
-            bos.flush();
-        }
-        // Write boundary to end sending file.
-        bos.write(bnd);
-        //bos.write(new String("123456789012345678901234").getBytes());
-        bos.flush();
-        bis.close();
-        System.out.println("Completed sending file " + f.getName());
+    public void sendFile(Socket skt, File f, byte[] bnd)  throws IOException {
+    	
+    	try {
+	        OutputStream os = skt.getOutputStream();
+	        BufferedOutputStream bos = new BufferedOutputStream(os, BUFFER_SIZE);
+	        BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f), BUFFER_SIZE);
+	        int c = 0;
+	        byte[] buff = new byte[BUFFER_SIZE];
+	        
+	        while((c = bis.read(buff)) != -1 ) {
+	            bos.write(buff,0,c);
+	            bos.flush();
+	        }
+	        // Write boundary to end sending file.
+	        bos.write(bnd);
+	        //bos.write(new String("123456789012345678901234").getBytes());
+	        bos.flush();
+	        bis.close();
+	        sop("Completed sending file " + f.getName());
+    	} catch(IOException ioe) {
+    		errorCount++;
+    		sop("Error sending file " + f.getName());
+    		ioe.printStackTrace();
+    		throw ioe;
+    	}
     }
     
     public void sendFilename(Socket skt, File file) throws Exception {
@@ -306,14 +321,14 @@ public class SocketUploadClient {
         	String apath = file.getAbsolutePath();
         	String p = apath.substring(apath.indexOf(basePath) + basePath.length() + 1);
         	if(!p.equals(filename)) {
-	        	sop("Sending base path " + p);
+	        	//sop("Sending base path " + p);
 	        	filename = p;
         	}
         }
         bos.write(filename.getBytes());
         bos.write(END_HEADER);
         bos.flush();
-        System.out.println("Sent file name " + filename);
+        //System.out.println("Sent file name " + filename);
     }
     
     public void sendBoundary(Socket skt, byte[] bnd) throws Exception {
@@ -489,7 +504,7 @@ public class SocketUploadClient {
     public Socket connect(String server,int port) throws Exception {
         
         Socket skt = new Socket(server, port);
-        skt.setSendBufferSize(BUFFER_SIZE);
+        //skt.setSendBufferSize(BUFFER_SIZE);
         sop("SO_SNDBUF " + skt.getSendBufferSize());
         return skt;
     }
