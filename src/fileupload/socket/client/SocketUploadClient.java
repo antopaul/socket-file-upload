@@ -11,7 +11,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -503,9 +505,13 @@ public class SocketUploadClient {
     
     public Socket connect(String server,int port) throws Exception {
         
-        Socket skt = new Socket(server, port);
+        //Socket skt = new Socket(server, port);
+    	Socket skt = new Socket();
         //skt.setSendBufferSize(BUFFER_SIZE);
-        sop("SO_SNDBUF " + skt.getSendBufferSize());
+        //sop("SO_SNDBUF " + skt.getSendBufferSize());
+        skt.setTcpNoDelay(true);
+    	SocketAddress address = new InetSocketAddress(server, port);
+        skt.connect(address);
         return skt;
     }
     
