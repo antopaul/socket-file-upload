@@ -249,23 +249,39 @@ public class SocketUploadClient {
     
     public String processResponse(Socket skt) throws Exception{
     	long start = System.currentTimeMillis();
+    	boolean foundEndHeader = false;
     	//System.out.println("Waiting for response");
     	
     	StringBuilder sb = new StringBuilder();
     	
         BufferedInputStream bis = new BufferedInputStream(skt.getInputStream());
-        byte[] buff = new byte[1024];
+        //byte[] buff = new byte[1];
         int c = -1;
-        
         // responses will be small so read that to memory.
-        while((c = bis.read(buff)) != -1) {
-        	sb.append(new String(Arrays.copyOf(buff, c)));
-        	//sop(sb.toString());
+        while((c = bis.read()) != -1) {
+        	//sb.append(new String(Arrays.copyOf(buff, c)));
+        	sb.append((char)c);
+        	if(sb.toString().endsWith(new String(END_HEADER))) {
+        		//sop("Found header " + sb);
+        		// Strip END_HEADER from response.
+        		sb.replace(sb.length() -5, sb.length(), "");
+        		foundEndHeader = true;
+        		break;
+        	}
+        }
+        if(!foundEndHeader) {
+        	sop("1 header not found in reponse " + sb);
         	if(sb.toString().endsWith(new String(END_HEADER))) {
         		// Strip END_HEADER from response.
         		sb.replace(sb.length() -5, sb.length(), "");
-        		break;
+        		foundEndHeader = true;
+        		System.exit(1);
         	}
+        	
+        }
+        if(!foundEndHeader) {
+        	sop("2 header not found in reponse " + sb);
+        	System.exit(1);
         }
         respTime += System.currentTimeMillis() - start; 
         return sb.toString();
@@ -276,7 +292,8 @@ public class SocketUploadClient {
     	// check response to see if file already exists.
         String resp = processResponse(socket);
         if(!OK.equals(resp)) {
-        	sop("Error sending file. " + resp);
+        	sop("Error sending file - " + resp);
+        	System.exit(1);
         	fileexists = true;
         }
     	return fileexists;
